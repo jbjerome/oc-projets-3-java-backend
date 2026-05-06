@@ -4,7 +4,7 @@ Plateforme de location immobilière — projet OpenClassrooms P3 « Modélisez e
 
 Le repo contient :
 
-- **`back/`** — API REST Spring Boot 3 (Java 17) en architecture hexagonale
+- **`back/`** — API REST Spring Boot 3 (Java 17) en architecture MVC
 - **`angular/`** — front Angular 20 (Node 22)
 - **`docker-compose.yml`** — stack complète (MariaDB, MinIO, backend, frontend)
 - **`ressources/`** — schéma SQL, environnement Mockoon, script d'init MinIO
@@ -78,48 +78,29 @@ Tests :
 
 ## Architecture du backend
 
-Architecture **hexagonale (ports & adapters)** organisée par **bounded context**.
+Architecture **MVC classique** Spring Boot, organisée par **module métier**.
 
 ```
 back/src/main/java/com/chatop/back/
-├── auth/               JWT issuance (port + adapter Nimbus)
-├── user/               domaine User : register, login, me
-├── rental/             domaine Rental : list, get, create (multipart), update
-├── message/            domaine Message : envoi de messages
-├── shared/             réponses transverses (ApiMessage)
+├── auth/               émission JWT, register / login / me
+├── user/               profil utilisateur (GET /api/user/{id})
+├── rental/             list, get, create (multipart), update
+├── message/            envoi de messages
+├── shared/dto/         réponses transverses (ApiMessage)
 └── config/             SecurityConfig, OpenApiConfig, GlobalExceptionHandler
 ```
 
-Chaque bounded context suit la même découpe :
+Chaque module suit la même découpe :
 
 ```
-<context>/
-├── api/
-│   ├── controller/   un controller par action (SRP)
-│   ├── request/      DTO d'entrée + validation Jakarta
-│   └── response/     DTO de sortie
-├── application/
-│   ├── command/      records immutables (input des use cases)
-│   └── usecase/      orchestration métier, @Transactional
-├── domain/
-│   ├── entity/       entités (factories statiques, invariants)
-│   ├── vo/           value objects (Surface, Price, PictureUpload…)
-│   ├── repository/   ports (interfaces)
-│   ├── service/      ports métier (PasswordHasher, PictureStorage)
-│   └── exception/    exceptions métier
-└── infrastructure/
-    ├── persistence/  JPA entity + Spring Data + adapter du port
-    ├── security/     adapters Spring Security
-    └── storage/      adapter MinIO (rental)
+<module>/
+├── controller/   endpoints REST (un controller par ressource)
+├── service/      logique métier, @Transactional
+├── repository/   interfaces Spring Data (extends JpaRepository)
+├── model/        entités JPA (@Entity, Lombok @Data @Builder)
+├── dto/          DTO d'entrée (validation Jakarta) + DTO de sortie
+└── exception/    exceptions métier
 ```
-
-**Principes retenus**
-
-- Le domaine ne dépend ni de Spring ni de JPA — pure Java + invariants
-- Les ports vivent côté domaine ; les adapters Spring/JPA vivent côté infra (package-private = forcent le passage par le port)
-- Les value objects portent les invariants (`Surface`, `Price`, `PictureUpload`) et lèvent des exceptions dédiées (`InvalidPriceException`…) gérées en 400 par le `GlobalExceptionHandler`
-- Un controller = une action HTTP (cf. `RegisterController`, `ListRentalsController`, `CreateRentalController`…)
-- Le JWT porte `sub` (email) + claim `user_id` pour éviter les lookups DB côté rental
 
 ## Endpoints
 
@@ -158,9 +139,6 @@ Le SDK utilisé (`io.minio:minio`) parle nativement le protocole S3. Pour passer
 
 1. Pointer `MINIO_ENDPOINT` vers `https://s3.<region>.amazonaws.com`
 2. Renseigner les credentials IAM dans `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY`
-3. Ajouter `.region(...)` dans `MinioConfig` (AWS exige la région pour SigV4)
-
-Pour exposer publiquement les images en prod, le pattern recommandé est CloudFront + Origin Access Control plutôt qu'un bucket public.
 
 ## Ressources
 
