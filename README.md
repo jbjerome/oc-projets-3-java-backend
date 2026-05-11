@@ -98,6 +98,7 @@ Chaque module suit la même découpe :
 ├── service/      logique métier, @Transactional
 ├── repository/   interfaces Spring Data (extends JpaRepository)
 ├── model/        entités JPA (@Entity, Lombok @Data @Builder)
+├── vo/           value objects (records auto-validants) + converter/ JPA AttributeConverter
 ├── dto/          DTO d'entrée (validation Jakarta) + DTO de sortie
 └── exception/    exceptions métier
 ```
